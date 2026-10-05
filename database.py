@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine, text
 
-engine = create_engine('postgresql://postgres:senha@host:porta/usuario')
+engine = create_engine('postgresql://postgres:Senha@host:5432/usuario')
 
 with engine.connect() as conn:
     schema = conn.execute(text(""" 
@@ -13,8 +13,9 @@ with engine.connect() as conn:
             Customer_Name VARCHAR(50),
             Customer_Age INTEGER,
             Customer_Email VARCHAR(50),
+            Access_Level VARCHAR(30),
             External_ID integer,
             integration_status VARCHAR(20),
-            Created_At TIMESTAMP DEFAULT CURRENT_TIMESTAMP); 
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP); 
 """))
     conn.commit()
