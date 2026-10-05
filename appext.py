@@ -35,12 +35,13 @@ def create_user_ext(user:User_ext):
     external_code = f'EXT-{random.randint(user.external_code,40)}'
 
     with out_engine.connect() as out:
-        out.execute(text("""
-                        Insert into projetos.external (external_code,company_name,email) values (:external_code, :company_name,:contact_email)
+        resultado = out.execute(text("""
+                        Insert into projetos.external (external_code,company_name,email) values (:external_code, :company_name,:contact_email) RETURNING id
                     """), parameters={'external_code':external_code, 'company_name':company_name, 'contact_email':user.contact_email})
-        out.commit()
+        id = resultado.scalar_one()
+        out.commit() 
 
-    return {'external_code':external_code, 'status': 'created'}
+    return {'id': id,'external_code':external_code, 'status': 'created'}
 
 @app_ext.get('/external/users/{id}')
 def get_user_ext(id:int):
