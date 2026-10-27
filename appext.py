@@ -27,11 +27,17 @@ def home():
     return {'API':'Rodando', 'Ultimo user criado': dados}
 
 @app_ext.post('/external/companies')
-def create_user_ext(user:User_ext):
-    if('@blaze.com' not in user.contact_email):
-        raise HTTPException(status_code= '400', detail= 'Not a company email')
+def create_user_ext_viaPayloadINT (user:User_ext):
+
+    email =str( user.contact_email).lower()
+    
+    if(not email.endswith("@blaze.com")):
+        raise HTTPException(status_code= 400 , detail= 'Not a company email')
+    
     repartido = user.name.split(' ')
-    company_name = ', '.join([repartido[0],repartido[-1]])
+    
+    company_name = ', '.join([repartido[0],repartido[-1]]) # ou ', '.join([stringe.split(' ')[0],stringe.split(' ')[-1]])
+    
     external_code = f'EXT-{random.randint(user.external_code,40)}'
 
     with out_engine.connect() as out:
@@ -54,3 +60,21 @@ def get_user_ext(id:int):
     if(len(dados) == 0):
         raise HTTPException(status_code= '404', detail= 'User not found')
     return {'user':dados}
+
+@app_ext.get('/external/users')
+def get_user_ext():
+    with out_engine.connect() as out:
+        resultado = out.execute(text("""Select external_code from projetos.external"""))
+        dados = []
+        resultado = resultado.fetchall()
+        for linha in resultado: ## ou usar direto o dados = resultado.scalars().all() ja faz a lista direto
+            dados.append(linha.external_code) # ou append(linha._mapping["external_code"])
+            print(linha.external_code   ) 
+    if(len(dados) == 0):
+        raise HTTPException(status_code= '404', detail= 'User not found')
+    return {'External_codes':dados}
+
+
+# fetchall() → quando você quer várias linhas completas, especialmente várias colunas;
+# scalar_one() → quando espera uma linha e um valor, como RETURNING id;
+# scalars().all() → quando espera várias linhas, mas só uma coluna.
