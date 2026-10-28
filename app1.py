@@ -10,7 +10,6 @@ class Customer(BaseModel):
     customer_email: EmailStr
 
 class User_ext(BaseModel):
-    external_code: int = Field(gt = 0, le= 30)
     name: str
     contact_email: EmailStr
     age: PositiveInt
@@ -30,7 +29,7 @@ def root():
 
 def send_payload(user_ext: User_ext):
    
-    payload = {"external_code": user_ext.external_code,
+    payload = {
         "name": user_ext.name,
         "contact_email": user_ext.contact_email}
     try:
@@ -86,6 +85,7 @@ def compare_ext_codes(ext_codes : list):
     with engine.connect() as out:
         data = out.execute(text("""
                                 Select external_id from projetos.clientes
+                                where external_id is not null
                                 """))
         external_ids_interiordb = data.scalars().all()
         pending_list = []
@@ -96,17 +96,18 @@ def compare_ext_codes(ext_codes : list):
                 continue        
         return pending_list
 
+def fetch_external_codes():
+    try:
+        data = requests.get('http://127.0.0.1:8001/external/users',timeout= 5)
+    except requests.exceptions.Timeout:
+            raise HTTPException(status_code= 504, detail= 'External API Timeout')
+    except requests.exceptions.ConnectionError:
+            raise HTTPException(status_code= 503, detail='External API connection Error')
+    return data.json()
     
 @app.get("/customers/external/pending")
 def get_ext_users():
-    try:
-        data  = requests.get('http://127.0.0.1:8001/external/users',timeout= 5 )
-    except requests.exceptions.Timeout:
-        raise HTTPException(status_code= 504, detail= 'External API Timeout')
-    except requests.exceptions.ConnectionError:
-        raise HTTPException(status_code= 503, detail='External API connection Error')
-    print('fez o get_ext_users')
-    return  data.json()
+    return  fetch_external_codes()
 
 def get_user_ext_data_payload(external_code):
     print('entrou em get_user_ext_data_payload')
@@ -131,8 +132,6 @@ def att_users_ext(external_code): ## criar a função de post de atualização d
             level = 'Outsourced-min'
     else:
             level = 'Outsourced-max'
-
-    print(ext_data)
     if(ext_data): 
         usuario = ext_data[0]
         print(usuario['company_name'])
@@ -147,9 +146,13 @@ def att_users_ext(external_code): ## criar a função de post de atualização d
                 id =  resultado.scalar_one()
                 print(id)
                 con.commit()
-        else:
-            print('n entrou no external_code in validar')   
-    else:
-        print('n passou do extdata > 1 ')
-    
-    return {'Created ID in database': id}
+                
+        elif external_code not in validar:
+            raise HTTPException(status_code=409, detail="External user already integrated")    
+   
+    return  {
+        "id": id,
+        "external_code": usuario["external_code"],
+        "integration_status": "Integrated",
+        "access_level": level
+    }
