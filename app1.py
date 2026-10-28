@@ -92,21 +92,64 @@ def compare_ext_codes(ext_codes : list):
         for i in  ext_codes['External_codes']:
             if i not in external_ids_interiordb: 
                 pending_list.append(i)
+            else:
+                continue        
+        return pending_list
 
+    
 @app.get("/customers/external/pending")
 def get_ext_users():
     try:
         data  = requests.get('http://127.0.0.1:8001/external/users',timeout= 5 )
     except requests.exceptions.Timeout:
-        raise HTTPException(status_code= 504, detail= 'External API Timeout ')
+        raise HTTPException(status_code= 504, detail= 'External API Timeout')
     except requests.exceptions.ConnectionError:
         raise HTTPException(status_code= 503, detail='External API connection Error')
-    print(data.json())
+    print('fez o get_ext_users')
     return  data.json()
 
-@app.post('/customers/external/{external_code}/integrate')
-def att_users_ext(): ## criar a função de post de atualização dos users continuar ela
+def get_user_ext_data_payload(external_code):
+    print('entrou em get_user_ext_data_payload')
+    try:
+        r = requests.get( f'http://127.0.0.1:8001/external/users/data/{external_code}',timeout= 5)
+    except requests.exceptions.Timeout:
+        raise HTTPException(status_code= 504, detail= 'External API Timeout')
+    except requests.exceptions.ConnectionError:
+        raise HTTPException(status_code= 503, detail='External API connection Error')
+    print('finalizou o get_user_ext_data_payload')
+    
+    return r.json()
 
-    ext_codes = get_ext_users()
+@app.post('/customers/external/{external_code}/integrate')
+def att_users_ext(external_code): ## criar a função de post de atualização dos users continuar ela
+
+    ext_codes = get_ext_users() ## instead of having two functions to 1  for user data and other to extcode, only one with everything, and treat to get the list of codes here
     validar = compare_ext_codes(ext_codes=ext_codes)
-    return False
+    ext_data = get_user_ext_data_payload(external_code=external_code)
+
+    if int(external_code.split('-')[-1]) < 20:
+            level = 'Outsourced-min'
+    else:
+            level = 'Outsourced-max'
+
+    print(ext_data)
+    if(ext_data): 
+        usuario = ext_data[0]
+        print(usuario['company_name'])
+        if(external_code in validar):
+            print('got to here')
+            with engine.connect() as con:
+                resultado = con.execute(text("""
+                                            Insert into projetos.clientes (customer_name, customer_email,external_id,integration_status,access_level) 
+                                            Values(:name,:email,:external_code, 'Integrated',:level)
+                                            Returning id 
+                                            """), parameters = {'name': usuario['company_name'],'email': usuario['email'],'external_code':usuario['external_code'], 'level': level} )
+                id =  resultado.scalar_one()
+                print(id)
+                con.commit()
+        else:
+            print('n entrou no external_code in validar')   
+    else:
+        print('n passou do extdata > 1 ')
+    
+    return {'Created ID in database': id}

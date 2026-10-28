@@ -50,7 +50,7 @@ def create_user_ext_viaPayloadINT (user:User_ext):
     return {'id': id,'external_code':external_code, 'status': 'created'}
 
 @app_ext.get('/external/users/{id}')
-def get_user_ext(id:int):
+def get_user_ext_by_id(id:int):
     with out_engine.connect() as out:
         resultado = out.execute(text("""Select * from projetos.external where id = :id"""), parameters={'id':id})
         dados = []
@@ -74,6 +74,19 @@ def get_user_ext():
         raise HTTPException(status_code= '404', detail= 'User not found')
     return {'External_codes':dados}
 
+@app_ext.get('/external/users/data/{external_code}')
+def get_ext_user_data(external_code: str):
+    print(external_code)
+    with out_engine.connect() as out:
+        resultado = out.execute(text("""Select * from projetos.external where external_code = :external_code"""), parameters={'external_code':external_code})
+        dados = []
+        resultado = resultado.fetchall()
+        for linha in resultado:
+            dados.append(dict(linha._mapping))
+    if(len(dados) == 0):
+        raise HTTPException(status_code= 404, detail= f'User not found {external_code}')
+    print('broke here')
+    return dados
 
 # fetchall() → quando você quer várias linhas completas, especialmente várias colunas;
 # scalar_one() → quando espera uma linha e um valor, como RETURNING id;
